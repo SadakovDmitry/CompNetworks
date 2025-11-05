@@ -1,14 +1,14 @@
 package main
 
-// Константы протокола для общения между клиентами и сервером
+
 const (
-	STUN_REQUEST  = 0x01 // Запрос на определение внешнего адреса
-	STUN_RESPONSE = 0x02 // Ответ с внешним адресом
-	PEER_INFO_REQ = 0x03 // Запрос на регистрацию пира
-	PEER_INFO     = 0x04 // Информация о целевом пире
-	PEER_READY    = 0x05 // Пир готов (узнал свой адрес)
-	PEER_CONNECT  = 0x06 // Сообщение о подключении (для логирования)
-	P2P_MESSAGE   = 0x07 // Сообщения между пирами (P2P)
+	STUN_REQUEST  = 0x01 
+	STUN_RESPONSE = 0x02 
+	PEER_INFO_REQ = 0x03 
+	PEER_INFO     = 0x04 
+	PEER_READY    = 0x05 
+	PEER_CONNECT  = 0x06 
+	P2P_MESSAGE   = 0x07 
 )
 
 

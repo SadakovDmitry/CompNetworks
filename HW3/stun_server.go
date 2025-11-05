@@ -8,24 +8,24 @@ import (
 	"time"
 )
 
-// STUN сообщения используют простой формат
-// Для упрощения используем простой протокол:
-// Тип сообщения (1 байт) + данные
-// Константы протокола определены в protocol.go
 
-// STUN сервер для определения внешнего IP и порта
+
+
+
+
+
 type STUNServer struct {
 	port     int
 	conn     *net.UDPConn
 	peers    map[string]*PeerInfo
-	peerPairs map[string]string // Связь между peer ID
+	peerPairs map[string]string 
 }
 
 type PeerInfo struct {
 	ID          string
-	LocalAddr   *net.UDPAddr  // Локальный адрес (как видит сервер)
-	ExternalAddr *net.UDPAddr // Внешний адрес (который клиент узнал через STUN)
-    ReportedLocalAddr *net.UDPAddr // Локальный адрес, который сообщил клиент (внутрисетевой)
+	LocalAddr   *net.UDPAddr  
+	ExternalAddr *net.UDPAddr 
+    ReportedLocalAddr *net.UDPAddr 
 	LastSeen    time.Time
 }
 
@@ -53,7 +53,7 @@ func (s *STUNServer) Start() error {
 
 	buffer := make([]byte, 1024)
 
-	// Очистка старых пиров каждые 30 секунд
+	
 	go s.cleanupPeers()
 
 	for {
@@ -85,17 +85,17 @@ func (s *STUNServer) Start() error {
 	}
 }
 
-// Обработка STUN запроса - возвращаем клиенту его внешний адрес
+
 func (s *STUNServer) handleSTUNRequest(clientAddr *net.UDPAddr) {
-	// Отправляем обратно адрес клиента как его внешний адрес
-	// Формат: тип (1 байт) + IP (4 байта для IPv4) + Port (2 байта)
+	
+	
 	response := make([]byte, 1+4+2)
 	response[0] = STUN_RESPONSE
 
-	// Кодируем IP и порт
+	
 	ip := clientAddr.IP.To4()
 	if ip == nil {
-		// Если IPv6, используем первые 4 байта для упрощения
+		
 		ip = clientAddr.IP.To16()[:4]
 	}
 	copy(response[1:5], ip)
@@ -110,9 +110,9 @@ func (s *STUNServer) handleSTUNRequest(clientAddr *net.UDPAddr) {
 		clientAddr, clientAddr.IP, clientAddr.Port)
 }
 
-// Обработка запроса информации о пире
+
 func (s *STUNServer) handlePeerInfoRequest(clientAddr *net.UDPAddr, payload []byte) {
-	// Формат: peerID + '\0' + targetPeerID
+	
 	parts := splitNullTerminated(payload)
 	if len(parts) < 2 {
 		log.Printf("Invalid peer info request from %s", clientAddr)
@@ -122,11 +122,11 @@ func (s *STUNServer) handlePeerInfoRequest(clientAddr *net.UDPAddr, payload []by
 	peerID := string(parts[0])
 	targetPeerID := string(parts[1])
 
-	// Сохраняем информацию о пире
+	
 	peerInfo := &PeerInfo{
 		ID:          peerID,
 		LocalAddr:   clientAddr,
-		ExternalAddr: nil, // Будет установлен позже
+		ExternalAddr: nil, 
 		LastSeen:    time.Now(),
 	}
 	s.peers[peerID] = peerInfo
@@ -135,29 +135,29 @@ func (s *STUNServer) handlePeerInfoRequest(clientAddr *net.UDPAddr, payload []by
 	fmt.Printf("Peer %s registered from %s, looking for peer %s\n",
 		peerID, clientAddr, targetPeerID)
 
-	// Проверяем, есть ли уже целевой пир и можно ли обменяться информацией
+	
 	targetPeer, exists := s.peers[targetPeerID]
 	if exists {
-		// Если целевой пир уже зарегистрирован, отправляем информацию
-		// даже если ExternalAddr еще не установлен (для случая одной сети)
+		
+		
 		if targetPeer.ExternalAddr != nil {
 			s.sendPeerInfo(peerID, targetPeer)
 		} else {
-			// Отправляем локальный адрес для случая одной сети
+			
 			s.sendPeerInfoLocal(peerID, targetPeer)
 		}
 	}
 }
 
-// Обработка готовности пира (когда он узнал свой внешний адрес)
+
 func (s *STUNServer) handlePeerReady(clientAddr *net.UDPAddr, payload []byte) {
-    // Формат: peerID + '\0' + ExtIP(4) + ExtPort(2) [+ LocIP(4) + LocPort(2)]
+    
     if len(payload) < 7 {
 		log.Printf("Invalid peer ready message from %s", clientAddr)
 		return
 	}
 
-	// Находим нулевой байт, разделяющий peerID и данные адреса
+	
 	nullIdx := -1
 	for i, b := range payload {
 		if b == 0 {
@@ -171,14 +171,14 @@ func (s *STUNServer) handlePeerReady(clientAddr *net.UDPAddr, payload []byte) {
 	}
 
     peerID := string(payload[:nullIdx])
-    // ВАЖНО: скопировать байты IP, чтобы не держать слайс на общий буфер
+    
     extBytes := make([]byte, 4)
     copy(extBytes, payload[nullIdx+1:nullIdx+5])
     externalIP := net.IP(extBytes)
     externalPort := binary.BigEndian.Uint16(payload[nullIdx+5 : nullIdx+7])
 
     var reportedLocal *net.UDPAddr
-    // Дополнительно можем получить локальный адрес клиента, если он прислан
+    
     if nullIdx+12 <= len(payload) {
         locBytes := make([]byte, 4)
         copy(locBytes, payload[nullIdx+7:nullIdx+11])
@@ -193,7 +193,7 @@ func (s *STUNServer) handlePeerReady(clientAddr *net.UDPAddr, payload []byte) {
 		return
 	}
 
-    // Сохраняем копию адреса, чтобы не зависеть от переиспользуемого буфера
+    
     externalAddr := &net.UDPAddr{IP: append(net.IP(nil), externalIP...), Port: int(externalPort)}
     peerInfo.ExternalAddr = externalAddr
     if reportedLocal != nil {
@@ -204,25 +204,25 @@ func (s *STUNServer) handlePeerReady(clientAddr *net.UDPAddr, payload []byte) {
 	fmt.Printf("Peer %s ready with external address %s:%d\n",
 		peerID, externalIP, externalPort)
 
-	// Если есть пара, отправляем информацию друг другу
+	
 	targetPeerID := s.peerPairs[peerID]
 	if targetPeerID != "" {
 		targetPeer, exists := s.peers[targetPeerID]
 		if exists {
-			// Если оба пира имеют внешние адреса, отправляем их
+			
             if targetPeer.ExternalAddr != nil && peerInfo.ExternalAddr != nil {
 				s.sendPeerInfo(peerID, targetPeer)
 				s.sendPeerInfo(targetPeerID, peerInfo)
             } else if targetPeer.ExternalAddr != nil {
-				// Только целевой пир имеет внешний адрес
+				
 				s.sendPeerInfo(peerID, targetPeer)
 				s.sendPeerInfoLocal(targetPeerID, peerInfo)
             } else if peerInfo.ExternalAddr != nil {
-				// Только текущий пир имеет внешний адрес
+				
 				s.sendPeerInfoLocal(peerID, targetPeer)
 				s.sendPeerInfo(targetPeerID, peerInfo)
 			} else {
-				// Оба пира в одной сети - используем локальные адреса
+				
 				s.sendPeerInfoLocal(peerID, targetPeer)
 				s.sendPeerInfoLocal(targetPeerID, peerInfo)
 			}
@@ -230,7 +230,7 @@ func (s *STUNServer) handlePeerReady(clientAddr *net.UDPAddr, payload []byte) {
 	}
 }
 
-// Вспомогательная функция для разделения по нулевому байту
+
 func splitNullTerminated(data []byte) [][]byte {
 	var result [][]byte
 	start := 0
@@ -246,23 +246,23 @@ func splitNullTerminated(data []byte) [][]byte {
 	return result
 }
 
-// Отправка информации о пире (с внешним адресом)
+
 func (s *STUNServer) sendPeerInfo(peerID string, targetPeer *PeerInfo) {
 	peerInfo, exists := s.peers[peerID]
 	if !exists {
 		return
 	}
 
-    // Формат: тип (1) + ExtIP(4)+ExtPort(2) + LocIP(4)+LocPort(2)
+    
     response := make([]byte, 1+4+2+4+2)
 	response[0] = PEER_INFO
 
-    // External candidate
+    
     extIP := targetPeer.ExternalAddr.IP.To4()
     if extIP == nil { extIP = targetPeer.ExternalAddr.IP.To16() }
     copy(response[1:], extIP[:4])
     binary.BigEndian.PutUint16(response[5:], uint16(targetPeer.ExternalAddr.Port))
-    // Local candidate (reported by peer, fallback to zeroes if absent)
+    
     locIP := net.IPv4zero.To4()
     locPort := 0
     if targetPeer.ReportedLocalAddr != nil {
@@ -283,23 +283,23 @@ func (s *STUNServer) sendPeerInfo(peerID string, targetPeer *PeerInfo) {
 	}
 }
 
-// Отправка информации о пире (с локальным адресом для случая одной сети)
+
 func (s *STUNServer) sendPeerInfoLocal(peerID string, targetPeer *PeerInfo) {
 	peerInfo, exists := s.peers[peerID]
 	if !exists {
 		return
 	}
 
-    // Формат: тип (1) + ExtIP(4)+ExtPort(2) + LocIP(4)+LocPort(2)
+    
     response := make([]byte, 1+4+2+4+2)
 	response[0] = PEER_INFO
 
-    // В этом варианте ext-кандидатом считаем адрес, который видит сервер (может быть внешний)
+    
     extIP := targetPeer.LocalAddr.IP.To4()
     if extIP == nil { extIP = targetPeer.LocalAddr.IP.To16() }
     copy(response[1:], extIP[:4])
     binary.BigEndian.PutUint16(response[5:], uint16(targetPeer.LocalAddr.Port))
-    // Local candidate — предпочитаем ReportedLocalAddr, иначе нули
+    
     locIP := net.IPv4zero.To4()
     locPort := 0
     if targetPeer.ReportedLocalAddr != nil {
@@ -320,12 +320,12 @@ func (s *STUNServer) sendPeerInfoLocal(peerID string, targetPeer *PeerInfo) {
 	}
 }
 
-// Обработка сообщения о подключении (для логирования)
+
 func (s *STUNServer) handlePeerConnect(clientAddr *net.UDPAddr, payload []byte) {
 	fmt.Printf("Peer connection message from %s\n", clientAddr)
 }
 
-// Очистка неактивных пиров
+
 func (s *STUNServer) cleanupPeers() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()

@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-// Константы протокола определены в protocol.go
 
-// P2P клиент для установления соединения через NAT
+
+
 type P2PClient struct {
 	stunServerAddr *net.UDPAddr
 	peerID         string
@@ -31,7 +31,7 @@ func NewP2PClient(stunServer string, peerID string, targetPeerID string) (*P2PCl
 		return nil, fmt.Errorf("failed to resolve STUN server address: %v", err)
 	}
 
-	// Создаем UDP соединение для общения
+	
 	localConn, err := net.ListenUDP("udp", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create UDP connection: %v", err)
@@ -48,18 +48,18 @@ func NewP2PClient(stunServer string, peerID string, targetPeerID string) (*P2PCl
 	}, nil
 }
 
-// Шаг 1: Определение внешнего адреса через STUN
+
 func (c *P2PClient) discoverExternalAddress() error {
 	fmt.Println("Step 1: Discovering external address via STUN...")
 
-	// Отправляем STUN запрос
+	
 	request := []byte{STUN_REQUEST}
 	_, err := c.localConn.WriteToUDP(request, c.stunServerAddr)
 	if err != nil {
 		return fmt.Errorf("failed to send STUN request: %v", err)
 	}
 
-	// Ждем ответ
+	
 	buffer := make([]byte, 1024)
 	c.localConn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	n, _, err := c.localConn.ReadFromUDP(buffer)
@@ -71,7 +71,7 @@ func (c *P2PClient) discoverExternalAddress() error {
 		return fmt.Errorf("invalid STUN response")
 	}
 
-	// Парсим ответ: IP (4 байта) + Port (2 байта)
+	
 	externalIP := net.IP(buffer[1:5])
 	externalPort := binary.BigEndian.Uint16(buffer[5:7])
 
@@ -84,11 +84,11 @@ func (c *P2PClient) discoverExternalAddress() error {
 	return nil
 }
 
-// Шаг 2: Регистрация на рандеву сервере
+
 func (c *P2PClient) registerWithRendezvous() error {
 	fmt.Println("Step 2: Registering with rendezvous server...")
 
-	// Формируем сообщение: peerID + '\0' + targetPeerID
+	
 	message := make([]byte, 0, len(c.peerID)+len(c.targetPeerID)+2)
 	message = append(message, PEER_INFO_REQ)
 	message = append(message, []byte(c.peerID)...)
@@ -104,15 +104,15 @@ func (c *P2PClient) registerWithRendezvous() error {
 	return nil
 }
 
-// Шаг 3: Отправка информации о готовности
+
 func (c *P2PClient) sendReady() error {
 	fmt.Println("Step 3: Sending ready status...")
 
-    // Локальный адрес для связи внутри одной сети
+    
     localPort := uint16(c.localConn.LocalAddr().(*net.UDPAddr).Port)
     localIP := detectLocalIPv4()
 
-    // Формируем сообщение: peerID + '\0' + ExtIP(4) + ExtPort(2) + LocIP(4) + LocPort(2)
+    
     message := make([]byte, 0, 1+len(c.peerID)+1+4+2+4+2)
 	message = append(message, PEER_READY)
 	message = append(message, []byte(c.peerID)...)
@@ -121,7 +121,7 @@ func (c *P2PClient) sendReady() error {
 	portBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(portBytes, uint16(c.externalAddr.Port))
 	message = append(message, portBytes...)
-    // Добавляем локальный адрес
+    
     if localIP != nil {
         message = append(message, localIP.To4()...)
     } else {
@@ -140,7 +140,7 @@ func (c *P2PClient) sendReady() error {
 	return nil
 }
 
-// Шаг 4: Получение информации о целевом пире
+
 func (c *P2PClient) waitForPeerInfo() error {
 	fmt.Println("Step 4: Waiting for peer info from rendezvous server...")
 
@@ -153,7 +153,7 @@ func (c *P2PClient) waitForPeerInfo() error {
 		}
 
         if n >= 7 && buffer[0] == PEER_INFO {
-            // Формат: ExtIP(4)+ExtPort(2) [+ LocIP(4)+LocPort(2)]
+            
             peerIP := net.IP(buffer[1:5])
             peerPort := binary.BigEndian.Uint16(buffer[5:7])
             c.peerAddr = &net.UDPAddr{IP: peerIP, Port: int(peerPort)}
@@ -177,7 +177,7 @@ func (c *P2PClient) waitForPeerInfo() error {
 	}
 }
 
-// Шаг 5: NAT Hole Punching - отправка пакетов для "пробивания" NAT
+
 func (c *P2PClient) performHolePunching() error {
 	fmt.Println("Step 5: Performing NAT hole punching...")
     if c.peerLocalAddr != nil {
@@ -187,25 +187,25 @@ func (c *P2PClient) performHolePunching() error {
         fmt.Printf("Attempting to connect to peer at %s:%d\n", c.peerAddr.IP, c.peerAddr.Port)
     }
 
-	// Ключевая идея NAT hole punching:
-	// 1. Оба клиента одновременно отправляют пакеты друг другу
-	// 2. NAT устройства открывают порты для исходящих соединений
-	// 3. Если пакеты приходят примерно одновременно, они проходят через открытые порты
-	// 4. После этого устанавливается прямое P2P соединение
+	
+	
+	
+	
+	
 
 	fmt.Println("Starting simultaneous send/receive for hole punching...")
 
-	// Горутина для отправки пакетов (активная отправка)
+	
 	done := make(chan bool)
 	connected := make(chan bool)
 
     go func() {
-		// Отправляем пакеты с разными интервалами для надежности
+		
 		for i := 0; i < 30; i++ {
 			message := []byte{P2P_MESSAGE}
 			message = append(message, []byte(fmt.Sprintf("Hole punch %d from %s", i, c.peerID))...)
 
-            // Отправляем всем кандидатам
+            
             candidates := []*net.UDPAddr{c.peerAddr}
             if c.peerLocalAddr != nil {
                 candidates = append(candidates, c.peerLocalAddr)
@@ -219,14 +219,14 @@ func (c *P2PClient) performHolePunching() error {
                 }
             }
 
-			// В начале отправляем чаще, потом реже
+			
 			if i < 10 {
 				time.Sleep(50 * time.Millisecond)
 			} else {
 				time.Sleep(200 * time.Millisecond)
 			}
 
-			// Проверяем, не установлено ли уже соединение
+			
 			select {
 			case <-connected:
 				done <- true
@@ -237,13 +237,13 @@ func (c *P2PClient) performHolePunching() error {
 		done <- true
 	}()
 
-	// Слушаем ответы (параллельно с отправкой)
-	// Это критически важно - мы должны слушать ВО ВРЕМЯ отправки
+	
+	
 	startTime := time.Now()
 	timeout := 15 * time.Second
 
 	for {
-		// Устанавливаем таймаут для чтения
+		
 		remaining := timeout - time.Since(startTime)
 		if remaining <= 0 {
 			if c.connected {
@@ -258,7 +258,7 @@ func (c *P2PClient) performHolePunching() error {
 			fmt.Println("✓ Connection established!")
 			return nil
 		case <-done:
-			// Если отправили все пакеты, продолжаем слушать еще немного
+			
 			c.localConn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		default:
 		}
@@ -267,36 +267,36 @@ func (c *P2PClient) performHolePunching() error {
 		n, addr, err := c.localConn.ReadFromUDP(buffer)
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// Проверяем, не установлено ли соединение
+				
 				select {
 				case <-connected:
 					return nil
 				default:
 				}
-				// Продолжаем попытки
+				
 				continue
 			}
 			log.Printf("Error reading UDP: %v", err)
 			continue
 		}
 
-		// Проверяем, что это P2P сообщение от нашего пира
+		
 		if n > 0 && buffer[0] == P2P_MESSAGE {
-			// Проверяем, что это сообщение от ожидаемого пира
-			// (IP должен совпадать, порт может отличаться из-за NAT)
+			
+			
 			isFromPeer := false
 			if c.peerAddr != nil {
-				// Проверяем совпадение IP адреса
+				
 				isFromPeer = addr.IP.Equal(c.peerAddr.IP)
 			} else {
-				// Если адрес пира еще не установлен, принимаем любой P2P пакет
+				
 				isFromPeer = true
 			}
 
 			if isFromPeer {
 				fmt.Printf("✓ Received from peer %s:%d: %s\n", addr.IP, addr.Port, string(buffer[1:n]))
 
-				// Обновляем адрес пира, если он изменился (может быть другой порт из-за NAT)
+				
 				if c.peerAddr == nil || !addr.IP.Equal(c.peerAddr.IP) || addr.Port != c.peerAddr.Port {
 					if c.peerAddr != nil {
 						fmt.Printf("  (Peer address updated: %s:%d → %s:%d)\n",
@@ -313,13 +313,13 @@ func (c *P2PClient) performHolePunching() error {
 	}
 }
 
-// Обмен сообщениями в P2P режиме
+
 func (c *P2PClient) startP2PCommunication() error {
 	fmt.Println("\n=== P2P Connection Established! ===")
 	fmt.Println("You can now send messages to your peer.")
 	fmt.Println("Type 'quit' to exit.\n")
 
-	// Горутина для чтения сообщений от пира
+	
 	go func() {
 		for {
 			buffer := make([]byte, 1024)
@@ -333,17 +333,17 @@ func (c *P2PClient) startP2PCommunication() error {
 				continue
 			}
 
-			// Проверяем, что это P2P сообщение от нашего пира
-			// (IP должен совпадать, порт может отличаться из-за NAT)
+			
+			
 			if n > 0 && buffer[0] == P2P_MESSAGE {
 				if c.peerAddr != nil && addr.IP.Equal(c.peerAddr.IP) {
-					// Обновляем адрес пира, если порт изменился
+					
 					if addr.Port != c.peerAddr.Port {
 						c.peerAddr = addr
 					}
 					fmt.Printf("\n[Peer %s]: %s\n> ", addr, string(buffer[1:n]))
 				} else if c.peerAddr == nil {
-					// Если адрес пира еще не установлен, принимаем сообщение
+					
 					c.peerAddr = addr
 					fmt.Printf("\n[Peer %s]: %s\n> ", addr, string(buffer[1:n]))
 				}
@@ -351,7 +351,7 @@ func (c *P2PClient) startP2PCommunication() error {
 		}
 	}()
 
-	// Основной цикл для отправки сообщений
+	
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("> ")
@@ -364,7 +364,7 @@ func (c *P2PClient) startP2PCommunication() error {
 			break
 		}
 
-		// Формируем P2P сообщение
+		
 		p2pMessage := []byte{P2P_MESSAGE}
 		p2pMessage = append(p2pMessage, []byte(message)...)
 
@@ -377,34 +377,34 @@ func (c *P2PClient) startP2PCommunication() error {
 	return nil
 }
 
-// Основной метод установления соединения
+
 func (c *P2PClient) Connect() error {
-	// Шаг 1: Определяем внешний адрес
+	
 	if err := c.discoverExternalAddress(); err != nil {
 		return fmt.Errorf("discovery failed: %v", err)
 	}
 
-	// Шаг 2: Регистрируемся на рандеву сервере
+	
 	if err := c.registerWithRendezvous(); err != nil {
 		return fmt.Errorf("registration failed: %v", err)
 	}
 
-	// Шаг 3: Отправляем информацию о готовности
+	
 	if err := c.sendReady(); err != nil {
 		return fmt.Errorf("ready failed: %v", err)
 	}
 
-	// Шаг 4: Ждем информацию о целевом пире
+	
 	if err := c.waitForPeerInfo(); err != nil {
 		return fmt.Errorf("peer info failed: %v", err)
 	}
 
-	// Шаг 5: Выполняем NAT hole punching
+	
 	if err := c.performHolePunching(); err != nil {
 		return fmt.Errorf("hole punching failed: %v", err)
 	}
 
-	// Шаг 6: Начинаем P2P общение
+	
 	return c.startP2PCommunication()
 }
 
@@ -415,7 +415,7 @@ func (c *P2PClient) Close() error {
 	return nil
 }
 
-// Определяем локальный IPv4 адрес (первый не loopback)
+
 func detectLocalIPv4() net.IP {
     ifaces, err := net.Interfaces()
     if err != nil {
@@ -456,7 +456,7 @@ func main() {
 	flag.Parse()
 
 	if *mode == "server" {
-		// Запускаем STUN/Rendezvous сервер
+		
 		server := NewSTUNServer(*port)
 		if err := server.Start(); err != nil {
 			log.Fatalf("Server error: %v", err)
