@@ -1,0 +1,27 @@
+{
+  "client_interface": "eth1",
+  "upstream_interface": "eth2",
+  "trigger_domain": "rerand0m.ru",
+  "trigger_ipv4": "203.0.113.145",
+  "traceroute_base_port": 33434,
+  "traceroute_port_span": 64,
+  "dns_ttl": 120,
+  "lyrics": [
+    { "name": "half.a.league.half.a.league", "ipv4": "203.0.113.131" },
+    { "name": "half.a.league.onward", "ipv4": "203.0.113.132" },
+    { "name": "all.in.the.valley.of.death", "ipv4": "203.0.113.133" },
+    { "name": "rode.the.six.hundred", "ipv4": "203.0.113.134" },
+    { "name": "forward.the.light.brigade", "ipv4": "203.0.113.135" },
+    { "name": "charge.for.the.guns", "ipv4": "203.0.113.136" },
+    { "name": "into.the.valley.of.death", "ipv4": "203.0.113.137" },
+    { "name": "stormed.at.with.shot.and.shell", "ipv4": "203.0.113.138" },
+    { "name": "boldly.they.rode.and.well", "ipv4": "203.0.113.139" },
+    { "name": "into.the.jaws.of.death", "ipv4": "203.0.113.140" },
+    { "name": "into.the.mouth.of.hell", "ipv4": "203.0.113.141" },
+    { "name": "then.they.rode.back", "ipv4": "203.0.113.142" },
+    { "name": "left.of.six.hundred", "ipv4": "203.0.113.143" },
+    { "name": "honour.the.light.brigade", "ipv4": "203.0.113.144" },
+    { "name": "noble.six.hundred", "ipv4": "203.0.113.145" }
+  ]
+}
+

@@ -1,0 +1,18 @@
+# Ignore every README variant (case-sensitive)
+**/README*
+
+# Ignore Go binaries and test executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Ignore common generated binaries without extensions
+**/hw[0-9]*
+**/p2p-app
+**/tls-app
+**/interceptor
+
