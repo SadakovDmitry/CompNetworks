@@ -9,23 +9,18 @@ import (
 )
 
 
-
-
-
-
-
 type STUNServer struct {
 	port     int
 	conn     *net.UDPConn
 	peers    map[string]*PeerInfo
-	peerPairs map[string]string 
+	peerPairs map[string]string
 }
 
 type PeerInfo struct {
 	ID          string
-	LocalAddr   *net.UDPAddr  
-	ExternalAddr *net.UDPAddr 
-    ReportedLocalAddr *net.UDPAddr 
+	LocalAddr   *net.UDPAddr
+	ExternalAddr *net.UDPAddr
+    ReportedLocalAddr *net.UDPAddr
 	LastSeen    time.Time
 }
 
@@ -53,7 +48,7 @@ func (s *STUNServer) Start() error {
 
 	buffer := make([]byte, 1024)
 
-	
+
 	go s.cleanupPeers()
 
 	for {
@@ -87,15 +82,15 @@ func (s *STUNServer) Start() error {
 
 
 func (s *STUNServer) handleSTUNRequest(clientAddr *net.UDPAddr) {
-	
-	
+
+
 	response := make([]byte, 1+4+2)
 	response[0] = STUN_RESPONSE
 
-	
+
 	ip := clientAddr.IP.To4()
 	if ip == nil {
-		
+
 		ip = clientAddr.IP.To16()[:4]
 	}
 	copy(response[1:5], ip)
@@ -112,7 +107,7 @@ func (s *STUNServer) handleSTUNRequest(clientAddr *net.UDPAddr) {
 
 
 func (s *STUNServer) handlePeerInfoRequest(clientAddr *net.UDPAddr, payload []byte) {
-	
+
 	parts := splitNullTerminated(payload)
 	if len(parts) < 2 {
 		log.Printf("Invalid peer info request from %s", clientAddr)
@@ -122,11 +117,11 @@ func (s *STUNServer) handlePeerInfoRequest(clientAddr *net.UDPAddr, payload []by
 	peerID := string(parts[0])
 	targetPeerID := string(parts[1])
 
-	
+
 	peerInfo := &PeerInfo{
 		ID:          peerID,
 		LocalAddr:   clientAddr,
-		ExternalAddr: nil, 
+		ExternalAddr: nil,
 		LastSeen:    time.Now(),
 	}
 	s.peers[peerID] = peerInfo
@@ -135,15 +130,15 @@ func (s *STUNServer) handlePeerInfoRequest(clientAddr *net.UDPAddr, payload []by
 	fmt.Printf("Peer %s registered from %s, looking for peer %s\n",
 		peerID, clientAddr, targetPeerID)
 
-	
+
 	targetPeer, exists := s.peers[targetPeerID]
 	if exists {
-		
-		
+
+
 		if targetPeer.ExternalAddr != nil {
 			s.sendPeerInfo(peerID, targetPeer)
 		} else {
-			
+
 			s.sendPeerInfoLocal(peerID, targetPeer)
 		}
 	}
@@ -151,13 +146,13 @@ func (s *STUNServer) handlePeerInfoRequest(clientAddr *net.UDPAddr, payload []by
 
 
 func (s *STUNServer) handlePeerReady(clientAddr *net.UDPAddr, payload []byte) {
-    
+
     if len(payload) < 7 {
 		log.Printf("Invalid peer ready message from %s", clientAddr)
 		return
 	}
 
-	
+
 	nullIdx := -1
 	for i, b := range payload {
 		if b == 0 {
@@ -171,14 +166,14 @@ func (s *STUNServer) handlePeerReady(clientAddr *net.UDPAddr, payload []byte) {
 	}
 
     peerID := string(payload[:nullIdx])
-    
+
     extBytes := make([]byte, 4)
     copy(extBytes, payload[nullIdx+1:nullIdx+5])
     externalIP := net.IP(extBytes)
     externalPort := binary.BigEndian.Uint16(payload[nullIdx+5 : nullIdx+7])
 
     var reportedLocal *net.UDPAddr
-    
+
     if nullIdx+12 <= len(payload) {
         locBytes := make([]byte, 4)
         copy(locBytes, payload[nullIdx+7:nullIdx+11])
@@ -193,7 +188,7 @@ func (s *STUNServer) handlePeerReady(clientAddr *net.UDPAddr, payload []byte) {
 		return
 	}
 
-    
+
     externalAddr := &net.UDPAddr{IP: append(net.IP(nil), externalIP...), Port: int(externalPort)}
     peerInfo.ExternalAddr = externalAddr
     if reportedLocal != nil {
@@ -204,25 +199,25 @@ func (s *STUNServer) handlePeerReady(clientAddr *net.UDPAddr, payload []byte) {
 	fmt.Printf("Peer %s ready with external address %s:%d\n",
 		peerID, externalIP, externalPort)
 
-	
+
 	targetPeerID := s.peerPairs[peerID]
 	if targetPeerID != "" {
 		targetPeer, exists := s.peers[targetPeerID]
 		if exists {
-			
+
             if targetPeer.ExternalAddr != nil && peerInfo.ExternalAddr != nil {
 				s.sendPeerInfo(peerID, targetPeer)
 				s.sendPeerInfo(targetPeerID, peerInfo)
             } else if targetPeer.ExternalAddr != nil {
-				
+
 				s.sendPeerInfo(peerID, targetPeer)
 				s.sendPeerInfoLocal(targetPeerID, peerInfo)
             } else if peerInfo.ExternalAddr != nil {
-				
+
 				s.sendPeerInfoLocal(peerID, targetPeer)
 				s.sendPeerInfo(targetPeerID, peerInfo)
 			} else {
-				
+
 				s.sendPeerInfoLocal(peerID, targetPeer)
 				s.sendPeerInfoLocal(targetPeerID, peerInfo)
 			}
@@ -253,16 +248,16 @@ func (s *STUNServer) sendPeerInfo(peerID string, targetPeer *PeerInfo) {
 		return
 	}
 
-    
+
     response := make([]byte, 1+4+2+4+2)
 	response[0] = PEER_INFO
 
-    
+
     extIP := targetPeer.ExternalAddr.IP.To4()
     if extIP == nil { extIP = targetPeer.ExternalAddr.IP.To16() }
     copy(response[1:], extIP[:4])
     binary.BigEndian.PutUint16(response[5:], uint16(targetPeer.ExternalAddr.Port))
-    
+
     locIP := net.IPv4zero.To4()
     locPort := 0
     if targetPeer.ReportedLocalAddr != nil {
@@ -290,16 +285,16 @@ func (s *STUNServer) sendPeerInfoLocal(peerID string, targetPeer *PeerInfo) {
 		return
 	}
 
-    
+
     response := make([]byte, 1+4+2+4+2)
 	response[0] = PEER_INFO
 
-    
+
     extIP := targetPeer.LocalAddr.IP.To4()
     if extIP == nil { extIP = targetPeer.LocalAddr.IP.To16() }
     copy(response[1:], extIP[:4])
     binary.BigEndian.PutUint16(response[5:], uint16(targetPeer.LocalAddr.Port))
-    
+
     locIP := net.IPv4zero.To4()
     locPort := 0
     if targetPeer.ReportedLocalAddr != nil {
